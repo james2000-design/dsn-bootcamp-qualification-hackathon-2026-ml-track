@@ -7,8 +7,8 @@ from sklearn.metrics import mean_squared_error
 RANDOM_STATE = 42
 np.random.seed(RANDOM_STATE)
 
-train = pd.read_csv('/mnt/user-data/uploads/train.csv')
-test = pd.read_csv('/mnt/user-data/uploads/test.csv')
+train = pd.read_csv('train.csv')
+test = pd.read_csv('test.csv')
 
 
 def clean(df):
@@ -89,6 +89,6 @@ submission = pd.DataFrame({
     'id': test['id'].values,
     'total_sales': test_preds
 })
-submission.to_csv('/mnt/user-data/outputs/submission.csv', index=False)
+submission.to_csv('submission.csv', index=False)
 print("Saved submission with", len(submission), "rows")
 print(submission.head())

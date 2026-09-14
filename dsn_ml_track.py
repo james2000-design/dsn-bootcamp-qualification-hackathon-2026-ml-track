@@ -1,13 +1,3 @@
-"""
-DSN Bootcamp 2026 ML Track - Improved Pipeline
-Key changes vs. v1:
-  - Use product_code (target-encoded) and product_code x store_code interaction
-  - Keep shelf_visibility==0 as a valid value + binary flag
-  - Drop store_code one-hot; use store attributes + store target encoding
-  - Model log1p(total_sales); predict expm1
-  - Add product-level aggregates from train (product mean/std of sales)
-  - Bag XGBoost + LightGBM + CatBoost
-"""
 
 import numpy as np
 import pandas as pd
@@ -20,15 +10,14 @@ from sklearn.metrics import mean_squared_error
 RANDOM_STATE = 42
 N_FOLDS = 5
 
-# ---------------------------------------------------------------------------
+
 # 1. LOAD
-# ---------------------------------------------------------------------------
+
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-# ---------------------------------------------------------------------------
+
 # 2. BASIC CLEANING
-# ---------------------------------------------------------------------------
 NON_CONSUMABLE = {'household', 'health and hygiene', 'others'}
 DRINKS = {'soft drinks', 'hard drinks'}
 
@@ -52,11 +41,10 @@ def engineer(df):
 train = engineer(train)
 test = engineer(test)
 
-# ---------------------------------------------------------------------------
+
 # 3. PRODUCT-LEVEL TARGET ENCODING (out-of-fold to avoid leakage)
 #    The strongest signal: how much does this product sell on average?
 #    Also: product x store, product x category_group, etc.
-# ---------------------------------------------------------------------------
 GLOBAL_MEAN = train['total_sales'].mean()
 
 def target_encode(train_df, test_df, keys, target='total_sales',
@@ -110,9 +98,8 @@ train_te, test_te = target_encode(train, test, ['store_code'], name='store')
 train['te_store'] = train_te['te_store'].values
 test['te_store']  = test_te['te_store'].values
 
-# ---------------------------------------------------------------------------
+
 # 4. FEATURE ENGINEERING (per-row)
-# ---------------------------------------------------------------------------
 def build_features(df):
     df = df.copy()
 
@@ -134,14 +121,12 @@ def build_features(df):
 train = build_features(train)
 test = build_features(test)
 
-# ---------------------------------------------------------------------------
 # 5. CATEGORICAL ENCODING
 #    - product_category: one-hot (only ~16 unique)
 #    - category_group: one-hot
 #    - store_size/tier/format: one-hot
 #    - product_code / store_code: NOT one-hot (too many / would overfit);
 #      use target encodings instead + fold into interaction features.
-# ---------------------------------------------------------------------------
 LOW_CARD_CATS = ['product_category', 'category_group',
                  'store_size', 'store_location_tier', 'store_format',
                  'fat_content']
@@ -167,9 +152,9 @@ y_log = np.log1p(y)
 
 print(f"Feature matrix: {X_train_full.shape}")
 
-# ---------------------------------------------------------------------------
+
 # 6. MODEL: K-Fold OOF, 3 algorithms averaged
-# ---------------------------------------------------------------------------
+
 def rmse(a, b): return float(np.sqrt(mean_squared_error(a, b)))
 
 def run_cv(model_fn, name):
@@ -216,9 +201,8 @@ blend_oof  = w[0]*xgb_oof + w[1]*lgb_oof + w[2]*cb_oof
 blend_test = w[0]*xgb_test + w[1]*lgb_test + w[2]*cb_test
 print(f"BLEND: raw RMSE = {rmse(y, np.expm1(blend_oof)):.2f}")
 
-# ---------------------------------------------------------------------------
+
 # 7. SUBMISSION (invert log, clip at 0)
-# ---------------------------------------------------------------------------
 final = np.clip(np.expm1(blend_test), 0, None)
 sub = pd.DataFrame({'id': test['id'], 'total_sales': final})
 sub.to_csv('submission_v2.csv', index=False)

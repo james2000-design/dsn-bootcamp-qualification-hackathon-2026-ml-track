@@ -15,28 +15,13 @@ warnings.filterwarnings('ignore')
 
 RANDOM_STATE = 42
 
-# ---------------------------------------------------------------------------
 # 1. LOAD
-# ---------------------------------------------------------------------------
+
 train = pd.read_csv('train.csv')
 test = pd.read_csv('test.csv')
 
-# ---------------------------------------------------------------------------
+
 # 2. CLEANING / FEATURE ENGINEERING
-#    Key data issues found during EDA:
-#    - product_category has 48 raw values that are really 16 categories with
-#      inconsistent casing (e.g. "Snack Foods" / "snack foods" / "SNACK FOODS")
-#    - fat_content is meaningless for non-consumables (Household, Health and
-#      Hygiene, Others) -> relabel as "Non_Edible"
-#    - shelf_visibility has ~6-8% exact zeros, which is not physically
-#      plausible for a stocked item -> treat as missing, impute by category mean
-#    - product_weight_kg missing ~18% -> impute from other rows of the same
-#      product_code (weight is a property of the product, near-constant across
-#      stores with small measurement noise), falling back to category mean
-#    - store_size missing for 3 of the 10 stores entirely (not random per-row) ->
-#      kept as its own "Unknown" category; store_code itself already encodes
-#      every store attribute uniquely (only 10 stores total)
-# ---------------------------------------------------------------------------
 
 NON_CONSUMABLE = {'Household', 'Health And Hygiene', 'Others'}
 DRINKS = {'Soft Drinks', 'Hard Drinks'}
@@ -125,11 +110,11 @@ X_train = full_oh.iloc[:len(tr)].reset_index(drop=True)
 X_test = full_oh.iloc[len(tr):].reset_index(drop=True)
 y_train = tr['total_sales'].values
 
-# ---------------------------------------------------------------------------
+
 # 3. CROSS-VALIDATION (sanity check before final fit)
 #    5-fold CV RMSE with these settings: ~1080 (vs. a "predict the training
 #    mean" baseline of ~1698, the std of total_sales)
-# ---------------------------------------------------------------------------
+
 XGB_PARAMS = dict(
     n_estimators=2000, learning_rate=0.02, max_depth=4,
     subsample=0.8, colsample_bytree=0.8, reg_alpha=0.1, reg_lambda=1.0,
@@ -156,10 +141,9 @@ def cross_validate():
 
 cross_validate()
 
-# ---------------------------------------------------------------------------
 # 4. FINAL MODEL: bag 10 XGBoost models (different seeds / train-val splits)
 #    and average predictions for a more stable leaderboard score.
-# ---------------------------------------------------------------------------
+
 preds = []
 for seed in range(10):
     Xt, Xv, yt, yv = train_test_split(X_train, y_train, test_size=0.1, random_state=seed)
@@ -170,9 +154,8 @@ for seed in range(10):
 
 final_pred = np.clip(np.mean(preds, axis=0), 0, None)
 
-# ---------------------------------------------------------------------------
+
 # 5. SUBMISSION
-# ---------------------------------------------------------------------------
 submission = pd.DataFrame({'id': te['id'].values, 'total_sales': final_pred})
 submission.to_csv('submission.csv', index=False)
 print(submission.head())
